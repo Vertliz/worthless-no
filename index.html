@@ -4,10 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="Just a website made by Vertliz for his Youtube channel" />
-  <meta name="keywords" content="Vertliz, gaming, YouTube, tech content, gaming creator, worthless, worthless.no, " />
+  <meta name="keywords" content="Vertliz, gaming, YouTube, tech content, gaming creator, worthless, worthless.no" />
   
   <!-- Social Media Cards -->
   <meta property="og:title" content="Worthless Website | Made by Vertliz" />
+  <meta property="og:type" content="website" />
   <meta property="og:description" content="Just a website made by Vertliz for his Youtube channel" />
 
   <meta property="og:title" content="Worthless Site| Vertliz">
@@ -436,17 +437,6 @@
     :focus {
       outline: 3px solid #7adbff;
       outline-offset: 3px;
-    }
-
-    .sr-only {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      border: 0;
     }    .yt-channel-btn {
       display: inline-flex;
       align-items: center;
@@ -529,6 +519,50 @@
       .support-buttons {
         flex-direction: column;
         align-items: center;
+      }
+    }
+
+    .discord-widgets {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 2rem auto;
+      max-width: 1200px;
+    }
+
+    .discord-widgets section {
+      flex: 1;
+      min-width: 350px;
+      max-width: 500px;
+      margin: 0;
+      padding: 1rem;
+      background: rgba(25, 25, 40, 0.7);
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(122, 219, 255, 0.1);
+    }
+
+    .discord-widgets h3 {
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .discord-widgets iframe {
+      width: 100%;
+      height: 500px;
+      border-radius: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .discord-widgets {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .discord-widgets section {
+        width: 100%;
+        min-width: unset;
       }
     }
   </style>
@@ -640,22 +674,17 @@
 
     <section id="discord">
       <h2>Join My Communities</h2>
-      <div class="discord-widgets" style="display:flex; gap:2rem; flex-wrap: wrap; justify-content: center;">
+      <div class="discord-widgets">
         <section>
           <h3>Worthless RP</h3>
-          <iframe src="https://discord.com/widget?id=1345537251865657344&theme=dark" width="350" height="500" allowtransparency="true" frameborder="0" title="Worthless RP Discord"></iframe>
+          <iframe src="https://discord.com/widget?id=1345537251865657344&theme=dark" allowtransparency="true" frameborder="0" title="Worthless RP Discord"></iframe>
         </section>
         <section>
           <h3>Worthless Server</h3>
-          <iframe src="https://discord.com/widget?id=855476959109709865&theme=dark" width="350" height="500" allowtransparency="true" frameborder="0" title="Worthless Server"></iframe>
+          <iframe src="https://discord.com/widget?id=855476959109709865&theme=dark" allowtransparency="true" frameborder="0" title="Worthless Server"></iframe>
         </section>
       </div>
     </section>
-
-    <a href="https://youtube.com/@Vertliz" class="yt-channel-btn" target="_blank" rel="noopener">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-      Subscribe to my YouTube Channel
-    </a>
   </div>
 
   <footer>
