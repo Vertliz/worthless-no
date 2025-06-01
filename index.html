@@ -597,11 +597,9 @@
     <section id="support">
       <div class="support-section">
         <h3>Support My Content</h3>
-        <p>If you enjoy my content and want to support what I do, consider buying me a coffee!   Your support helps me create better content and keep improving.</p>        <div class="support-buttons">          <a href="https://ko-fi.com/vertliz" class="kofi-btn" target="_blank" rel="noopener">            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.033 11.596c.049 4.271 3.484 7.433 7.924 7.433 4.44 0 8.15-2.974 8.15-7.015 0-3.746-2.799-5.78-5.435-5.78-2.636 0-4.439 1.725-4.439 3.599 0 1.875 1.32 2.126 1.32 2.126s.418-.303.418-.303c0-.502-.418-.944-.418-1.446 0-1.004.771-1.319.771-1.319.418-.418 1.107-.635 1.898-.635 2.318 0 3.599 1.542 3.599 4.025 0 3.746-2.799 5.78-5.435 5.78-2.636 0-4.793-1.542-4.793-4.858 0-3.317 1.542-5.78 4.178-5.78.418 0 .635.082.635.082l.418-.303s-.635-.082-1.107-.082c-3.599 0-6.397 2.799-6.397 6.397 0 3.599 2.799 6.397 6.397 6.397 3.599 0 6.397-2.799 6.397-6.397 0-1.875-.771-3.599-2.318-4.858C22.147 14.567 24 12.269 24 9.718c0-.9-.119-1.77-.119-1.77z"/>
-            </svg>
-            Support me on Ko-fi
-          </a>
+        <p>If you enjoy my content and want to support what I do, consider buying me a coffee!   Your support helps me create better content and keep improving.</p>        <script type='text/javascript' src='https://storage.ko-fi.com/cdn/widget/Widget_2.js'></script><script type='text/javascript'>kofiwidget2.init('Support me on Ko-fi', '#00a6ff', 'W7W41FN3NO');kofiwidget2.draw();</script> 
+
+        
           <!-- YouTube Membership - Uncomment when ready -->
           <!-- 
           <a href="https://youtube.com/@Vertliz/join" class="yt-channel-btn" target="_blank" rel="noopener">
@@ -779,6 +777,17 @@
 
     // Update video on page load
     updateLatestVideo();
+  </script>
+
+  <!-- Ko-fi Widget -->
+  <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
+  <script>
+    kofiWidgetOverlay.draw('vertliz', {
+      'type': 'floating-chat',
+      'floating-chat.donateButton.text': 'Support me',
+      'floating-chat.donateButton.background-color': '#794bc4',
+      'floating-chat.donateButton.text-color': '#fff'
+    });
   </script>
 </body>
 </html>
