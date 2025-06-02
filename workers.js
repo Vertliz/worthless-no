@@ -1,6 +1,6 @@
 // YouTube API Configuration
-const API_KEY = "AIzaSyAwjqv6y3HalMxKXg9fvlJiFU-_E1hgWmQ";
-const CHANNEL_ID = "UCwMjRVVmjL9l9_IWNcUwDHQ";
+const API_KEY = "process.env.googleAPI";
+const CHANNEL_ID = "process.env.channelID";
 
 // CORS Headers for cross-origin requests
 const corsHeaders = {
