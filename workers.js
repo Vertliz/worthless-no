@@ -19,15 +19,30 @@ export default {
     }
 
     // Parse the request URL
-    const url = new URL(request.url);
-      // Route requests based on the path
+    const url = new URL(request.url);    // Route requests based on the path
     switch (url.pathname) {
       case '/':
         return getLatestVideo();
       case '/stats':
         return getChannelStats(request);
+      case '/health':
+        return new Response(JSON.stringify({ 
+          status: 'healthy', 
+          timestamp: new Date().toISOString(),
+          version: '1.0.0' 
+        }), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        });
+      case '/videos':
+        return getRecentVideos(request);
       default:
-        return new Response('Not Found', { status: 404 });
+        return new Response('Not Found', { 
+          status: 404,
+          headers: corsHeaders 
+        });
     }
   }
 };
