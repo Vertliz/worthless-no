@@ -64,15 +64,15 @@
       <p>Hey, I'm Vertliz! Just a 17 year old scandinavian doing stupid stuff.</p>
         <div class="stats">
         <div class="stat-card">
-          <div class="stat-number">111</div>
+          <div class="stat-number">...</div>
           <div>Subscribers</div>
         </div>
         <div class="stat-card">
-          <div class="stat-number">13</div>
+          <div class="stat-number">...</div>
           <div>Videos</div>
         </div>
         <div class="stat-card">
-          <div class="stat-number">1,912</div>
+          <div class="stat-number">...</div>
           <div>Total Views</div>
         </div>
       </div>
@@ -604,58 +604,9 @@
       `;
       document.head.appendChild(style);
     }
-    
-    addVideoGalleryStyles();
+      addVideoGalleryStyles();
 
-    // Connection status indicator
-    function addConnectionStatus() {
-      const statusEl = document.createElement('div');
-      statusEl.id = 'connection-status';
-      statusEl.style.cssText = `
-        position: fixed;
-        top: 80px;
-        left: 20px;
-        background: rgba(40, 167, 69, 0.9);
-        color: white;
-        padding: 8px 12px;
-        border-radius: 20px;
-        font-size: 0.8em;
-        font-weight: 500;
-        backdrop-filter: blur(8px);
-        border: 1px solid rgba(40, 167, 69, 0.3);
-        transform: translateX(-200px);
-        transition: transform 0.3s ease;
-        z-index: 1000;
-      `;
-      statusEl.innerHTML = '🟢 Online';
-      document.body.appendChild(statusEl);
-      
-      // Show status briefly on load
-      setTimeout(() => statusEl.style.transform = 'translateX(0)', 1000);
-      setTimeout(() => statusEl.style.transform = 'translateX(-200px)', 4000);
-      
-      // Monitor connection status
-      window.addEventListener('online', () => {
-        statusEl.innerHTML = '🟢 Back Online';
-        statusEl.style.background = 'rgba(40, 167, 69, 0.9)';
-        statusEl.style.borderColor = 'rgba(40, 167, 69, 0.3)';
-        statusEl.style.transform = 'translateX(0)';
-        setTimeout(() => statusEl.style.transform = 'translateX(-200px)', 3000);
-        
-        // Refresh data when coming back online
-        updateStatsEnhanced();
-        updateLatestVideo();
-        updateRecentVideos();
-      });
-      
-      window.addEventListener('offline', () => {
-        statusEl.innerHTML = '🔴 Offline';
-        statusEl.style.background = 'rgba(220, 53, 69, 0.9)';
-        statusEl.style.borderColor = 'rgba(220, 53, 69, 0.3)';
-        statusEl.style.transform = 'translateX(0)';
-      });
-    }
-      addConnectionStatus();    // Service Worker registration for caching and PWA features
+    // Service Worker registration for caching and PWA features
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
@@ -695,16 +646,10 @@
     window.addEventListener('error', (e) => {
       console.error('Global error:', e.error);
       showErrorIndicator('Something went wrong. Please refresh the page.');
-    });
-
-    window.addEventListener('unhandledrejection', (e) => {
+    });    window.addEventListener('unhandledrejection', (e) => {
       console.error('Unhandled promise rejection:', e.reason);
-      if (!navigator.onLine) {
-        showErrorIndicator('You are offline. Some features may not work.');
-      } else {
-        showErrorIndicator('Network request failed. Check your connection.');
-      }
-    });    // Test worker connectivity
+      showErrorIndicator('Network request failed. Check your connection.');
+    });// Test worker connectivity
     async function testWorkerConnection() {
       try {
         console.log('Testing worker connection...');
