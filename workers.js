@@ -1,16 +1,32 @@
-// YouTube API Configuration
-const API_KEY = "process.env.googleAPI";
-const CHANNEL_ID = "process.env.channelID";
-
 // CORS Headers for cross-origin requests
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Accept, Cache-Control',
+  'Access-Control-Max-Age': '86400',
 };
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
+    // Access environment variables from env parameter
+    const API_KEY = env.googleAPI;
+    const CHANNEL_ID = env.channelID;
+    
+    // Validate environment variables
+    if (!API_KEY || !CHANNEL_ID) {
+      return new Response(JSON.stringify({
+        error: 'Missing environment variables',
+        message: 'Please set googleAPI and channelID in your Cloudflare Worker environment',
+        required: ['googleAPI', 'channelID']
+      }), {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      });
+    }
+
     // Handle CORS preflight requests
     if (request.method === 'OPTIONS') {
       return new Response(null, {
@@ -19,17 +35,21 @@ export default {
     }
 
     // Parse the request URL
-    const url = new URL(request.url);    // Route requests based on the path
+    const url = new URL(request.url);
+
+    // Route requests based on the path
     switch (url.pathname) {
       case '/':
-        return getLatestVideo();
+        return getLatestVideo(API_KEY, CHANNEL_ID);
       case '/stats':
-        return getChannelStats(request);
+        return getChannelStats(request, API_KEY, CHANNEL_ID);
       case '/health':
         return new Response(JSON.stringify({ 
           status: 'healthy', 
           timestamp: new Date().toISOString(),
-          version: '1.0.0' 
+          version: '1.0.0',
+          hasApiKey: !!API_KEY,
+          hasChannelId: !!CHANNEL_ID
         }), {
           headers: {
             ...corsHeaders,
@@ -37,7 +57,7 @@ export default {
           }
         });
       case '/videos':
-        return getRecentVideos(request);
+        return getRecentVideos(request, API_KEY, CHANNEL_ID);
       default:
         return new Response('Not Found', { 
           status: 404,
@@ -47,16 +67,29 @@ export default {
   }
 };
 
-async function getLatestVideo() {
+async function getLatestVideo(API_KEY, CHANNEL_ID) {
   try {
+    console.log('Fetching latest video with API key:', API_KEY ? 'Present' : 'Missing');
     const response = await fetch(
       `https://www.googleapis.com/youtube/v3/search?key=${API_KEY}&channelId=${CHANNEL_ID}&part=snippet,id&order=date&maxResults=1&type=video`
     );
     
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('YouTube API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      throw new Error(`YouTube API returned ${response.status}: ${errorText}`);
+    }
+    
     const data = await response.json();
+    console.log('YouTube API response:', data);
     
     if (data.items && data.items.length > 0) {
       const videoId = data.items[0].id.videoId;
+      console.log('Latest video ID:', videoId);
       return new Response(videoId, {
         headers: {
           ...corsHeaders,
@@ -70,16 +103,20 @@ async function getLatestVideo() {
       headers: corsHeaders
     });
   } catch (error) {
-    return new Response('Error fetching video', {
+    console.error('Error in getLatestVideo:', error);
+    return new Response(`Error fetching video: ${error.message}`, {
       status: 500,
       headers: corsHeaders
     });
   }
 }
 
-async function getChannelStats(request) {
+async function getChannelStats(request, API_KEY, CHANNEL_ID) {
   try {
     console.log('Fetching channel stats...');
+    console.log('API Key present:', !!API_KEY);
+    console.log('Channel ID present:', !!CHANNEL_ID);
+    
     const response = await fetch(
       `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${CHANNEL_ID}&key=${API_KEY}`
     );
@@ -92,11 +129,14 @@ async function getChannelStats(request) {
         error: errorText
       });
       throw new Error(`YouTube API returned ${response.status}: ${errorText}`);
-    }    const data = await response.json();
+    }
+
+    const data = await response.json();
     console.log('API Response:', data);
     
     if (data.items && data.items.length > 0) {
       const stats = data.items[0].statistics;
+      console.log('Channel stats:', stats);
       
       const htmlResponse = `
 <!DOCTYPE html>
@@ -141,7 +181,7 @@ async function getChannelStats(request) {
   <h1>Vertliz YouTube Stats</h1>
   <div class="stat">
     <span class="label">Subscribers:</span>
-    <span class="value">${stats.subscriberCount}</span>
+    <span class="value">${stats.subscriberCount || 'Hidden'}</span>
   </div>
   <div class="stat">
     <span class="label">Videos:</span>
@@ -165,11 +205,15 @@ async function getChannelStats(request) {
           }
         });
       } else {
-        return new Response(JSON.stringify({
-          subscribers: stats.subscriberCount,
-          videos: stats.videoCount,
-          views: stats.viewCount
-        }), {
+        const jsonResponse = {
+          subscribers: parseInt(stats.subscriberCount) || 0,
+          videos: parseInt(stats.videoCount) || 0,
+          views: parseInt(stats.viewCount) || 0,
+          timestamp: new Date().toISOString()
+        };
+        console.log('Returning JSON stats:', jsonResponse);
+        
+        return new Response(JSON.stringify(jsonResponse), {
           headers: {
             ...corsHeaders,
             'Content-Type': 'application/json',
@@ -178,7 +222,8 @@ async function getChannelStats(request) {
         });
       }
     }
-      return new Response('Channel not found', {
+    
+    return new Response('Channel not found', {
       status: 404,
       headers: corsHeaders
     });
@@ -227,7 +272,10 @@ async function getChannelStats(request) {
         }
       });
     } else {
-      return new Response(JSON.stringify({ error: errorMessage }), {
+      return new Response(JSON.stringify({ 
+        error: errorMessage,
+        timestamp: new Date().toISOString()
+      }), {
         status: 500,
         headers: {
           ...corsHeaders,
@@ -235,6 +283,72 @@ async function getChannelStats(request) {
         }
       });
     }
+  }
+}
+
+async function getRecentVideos(request, API_KEY, CHANNEL_ID) {
+  try {
+    console.log('Fetching recent videos...');
+    const response = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?key=${API_KEY}&channelId=${CHANNEL_ID}&part=snippet,id&order=date&maxResults=5&type=video`
+    );
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('YouTube API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      throw new Error(`YouTube API returned ${response.status}: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Recent videos response:', data);
+    
+    if (data.items && data.items.length > 0) {
+      const videos = data.items.map(item => ({
+        id: item.id.videoId,
+        title: item.snippet.title,
+        description: item.snippet.description,
+        publishedAt: item.snippet.publishedAt,
+        thumbnail: item.snippet.thumbnails.medium.url
+      }));
+      
+      return new Response(JSON.stringify({ 
+        videos,
+        timestamp: new Date().toISOString()
+      }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=600' // Cache for 10 minutes
+        }
+      });
+    }
+    
+    return new Response(JSON.stringify({ 
+      videos: [],
+      timestamp: new Date().toISOString()
+    }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      }
+    });
+  } catch (error) {
+    console.error('Error in getRecentVideos:', error);
+    return new Response(JSON.stringify({ 
+      error: `Error fetching videos: ${error.message}`,
+      videos: [],
+      timestamp: new Date().toISOString()
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      }
+    });
   }
 }
 

@@ -23,9 +23,8 @@ self.addEventListener('install', (event) => {
 });
 
 // Fetch event - serve from cache, fallback to network
-self.addEventListener('fetch', (event) => {
-  // Skip caching for worker API calls to ensure fresh data
-  if (event.request.url.includes('vertlizofficial.workers.dev')) {
+self.addEventListener('fetch', (event) => {  // Skip caching for worker API calls to ensure fresh data
+  if (event.request.url.includes('workers.dev')) {
     return fetch(event.request);
   }
 
