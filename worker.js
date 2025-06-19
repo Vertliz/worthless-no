@@ -1,143 +1,148 @@
+// YouTube API configuration
+const API_KEY = "AIzaSyDsi1xLKmaCHmIKuxR9WE5fw7JmUj7XGBI"; // Your YouTube API key
+const CHANNEL_ID = "UCKGnDJb82iW2kXSLhPk6bZQ"; // Your YouTube channel ID
+
 // CORS Headers for cross-origin requests
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Accept, Cache-Control',
-  'Access-Control-Max-Age': '86400',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, HEAD, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Accept, Cache-Control",
+  "Access-Control-Max-Age": "86400",
 };
 
 export default {
-  async fetch(request, env) {
-    // Access environment variables from env parameter
-    const API_KEY = env.googleAPI;
-    const CHANNEL_ID = env.channelID;
-    
-    // Validate environment variables
-    if (!API_KEY || !CHANNEL_ID) {
-      return new Response(JSON.stringify({
-        error: 'Missing environment variables',
-        message: 'Please set googleAPI and channelID in your Cloudflare Worker environment',
-        required: ['googleAPI', 'channelID']
-      }), {
+  async fetch(request) {
+    // Handle CORS preflight requests first
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        headers: corsHeaders,
+      });
+    }
+
+    const url = new URL(request.url); // Only handle API routes, Pages handles static files
+    if (!url.pathname.startsWith("/api/")) {
+      return new Response("Not Found", {
+        status: 404,
+        headers: corsHeaders,
+      });
+    }
+
+    // Route API requests
+    switch (url.pathname) {
+      case "/api/latest":
+        return getLatestVideo(API_KEY, CHANNEL_ID);
+      case "/api/stats":
+        return getChannelStats(request, API_KEY, CHANNEL_ID);
+      case "/api/videos":
+        return getRecentVideos(request, API_KEY, CHANNEL_ID);
+      case "/api/health":
+        return new Response(
+          JSON.stringify({
+            status: "healthy",
+            timestamp: new Date().toISOString(),
+            version: "1.0.0",
+            hasApiKey: !!API_KEY,
+            hasChannelId: !!CHANNEL_ID,
+          }),
+          {
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      default:
+        // Try to serve static asset one more time for non-API routes
+        if (!url.pathname.startsWith("/api/")) {
+          try {
+            return await getAssetFromKV({
+              request,
+              waitUntil: ctx.waitUntil.bind(ctx),
+            });
+          } catch (error) {
+            console.error("Error serving static asset:", error);
+          }
+        }
+        return new Response("Not Found", {
+          status: 404,
+          headers: corsHeaders,
+        });
+    }
+  },
+};
+
+// Get the latest video from the channel
+const getLatestVideo = async (API_KEY, CHANNEL_ID) => {
+  try {
+    // First, get the channel's uploads playlist ID
+    const channelResponse = await fetch(
+      `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${CHANNEL_ID}&key=${API_KEY}`
+    ).then(validateResponse);
+
+    const channelData = await channelResponse.json();
+    const uploadsPlaylistId =
+      channelData.items[0].contentDetails.relatedPlaylists.uploads;
+
+    // Then, get the latest video from that playlist
+    const videosResponse = await fetch(
+      `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=1&key=${API_KEY}`
+    ).then(validateResponse);
+
+    const videosData = await videosResponse.json();
+    const latestVideo = videosData.items[0].snippet;
+
+    return new Response(
+      JSON.stringify({
+        title: latestVideo.title,
+        description: latestVideo.description,
+        thumbnails: latestVideo.thumbnails,
+        publishedAt: latestVideo.publishedAt,
+        videoId: latestVideo.resourceId.videoId,
+      }),
+      {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=300", // Cache for 5 minutes
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Error in getLatestVideo:", error);
+    return new Response(
+      JSON.stringify({
+        error: "Failed to fetch latest video",
+        message: error.message,
+      }),
+      {
         status: 500,
         headers: {
           ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      });
-    }
-
-    // Handle CORS preflight requests
-    if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        headers: corsHeaders
-      });
-    }
-
-    // Parse the request URL
-    const url = new URL(request.url);
-
-    // Route requests based on the path
-    switch (url.pathname) {
-      case '/':
-        return getLatestVideo(API_KEY, CHANNEL_ID);
-      case '/stats':
-        return getChannelStats(request, API_KEY, CHANNEL_ID);
-      case '/health':
-        return new Response(JSON.stringify({ 
-          status: 'healthy', 
-          timestamp: new Date().toISOString(),
-          version: '1.0.0',
-          hasApiKey: !!API_KEY,
-          hasChannelId: !!CHANNEL_ID
-        }), {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json'
-          }
-        });
-      case '/videos':
-        return getRecentVideos(request, API_KEY, CHANNEL_ID);
-      default:
-        return new Response('Not Found', { 
-          status: 404,
-          headers: corsHeaders 
-        });
-    }
+          "Content-Type": "application/json",
+        },
+      }
+    );
   }
 };
 
-async function getLatestVideo(API_KEY, CHANNEL_ID) {
+// Get channel statistics
+const getChannelStats = async (request, API_KEY, CHANNEL_ID) => {
   try {
-    console.log('Fetching latest video with API key:', API_KEY ? 'Present' : 'Missing');
-    const response = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?key=${API_KEY}&channelId=${CHANNEL_ID}&part=snippet,id&order=date&maxResults=1&type=video`
-    );
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('YouTube API Error:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText
-      });
-      throw new Error(`YouTube API returned ${response.status}: ${errorText}`);
-    }
-    
-    const data = await response.json();
-    console.log('YouTube API response:', data);
-    
-    if (data.items && data.items.length > 0) {
-      const videoId = data.items[0].id.videoId;
-      console.log('Latest video ID:', videoId);
-      return new Response(videoId, {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/plain',
-          'Cache-Control': 'public, max-age=300' // Cache for 5 minutes
-        }
-      });
-    }
-    
-    return new Response('No video found', {
-      headers: corsHeaders
-    });
-  } catch (error) {
-    console.error('Error in getLatestVideo:', error);
-    return new Response(`Error fetching video: ${error.message}`, {
-      status: 500,
-      headers: corsHeaders
-    });
-  }
-}
-
-async function getChannelStats(request, API_KEY, CHANNEL_ID) {
-  try {
-    console.log('Fetching channel stats...');
-    console.log('API Key present:', !!API_KEY);
-    console.log('Channel ID present:', !!CHANNEL_ID);
-    
     const response = await fetch(
       `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${CHANNEL_ID}&key=${API_KEY}`
-    );
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('YouTube API Error:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText
-      });
-      throw new Error(`YouTube API returned ${response.status}: ${errorText}`);
-    }
+    ).then(validateResponse);
 
     const data = await response.json();
-    console.log('API Response:', data);
-    
-    if (data.items && data.items.length > 0) {
-      const stats = data.items[0].statistics;
-      console.log('Channel stats:', stats);
-      
+
+    if (!data.items || data.items.length === 0) {
+      throw new Error("Channel not found");
+    }
+
+    const stats = data.items[0].statistics;
+
+    // Format the response based on the Accept header
+    const accept = request.headers.get("Accept") || "";
+    if (accept.includes("text/html")) {
       const htmlResponse = `
 <!DOCTYPE html>
 <html>
@@ -178,10 +183,10 @@ async function getChannelStats(request, API_KEY, CHANNEL_ID) {
   </style>
 </head>
 <body>
-  <h1>Vertliz YouTube Stats</h1>
+  <h1>Channel Statistics</h1>
   <div class="stat">
     <span class="label">Subscribers:</span>
-    <span class="value">${stats.subscriberCount || 'Hidden'}</span>
+    <span class="value">${stats.subscriberCount || "Hidden"}</span>
   </div>
   <div class="stat">
     <span class="label">Videos:</span>
@@ -194,51 +199,43 @@ async function getChannelStats(request, API_KEY, CHANNEL_ID) {
 </body>
 </html>`;
 
-      // Return HTML for direct visits, JSON for API requests
-      const accept = request.headers.get('Accept') || '';
-      if (accept.includes('text/html')) {
-        return new Response(htmlResponse, {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'text/html',
-            'Cache-Control': 'public, max-age=300'
-          }
-        });
-      } else {
-        const jsonResponse = {
+      return new Response(htmlResponse, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/html",
+          "Cache-Control": "public, max-age=300",
+        },
+      });
+    } else {
+      return new Response(
+        JSON.stringify({
           subscribers: parseInt(stats.subscriberCount) || 0,
           videos: parseInt(stats.videoCount) || 0,
           views: parseInt(stats.viewCount) || 0,
-          timestamp: new Date().toISOString()
-        };
-        console.log('Returning JSON stats:', jsonResponse);
-        
-        return new Response(JSON.stringify(jsonResponse), {
+          timestamp: new Date().toISOString(),
+        }),
+        {
           headers: {
             ...corsHeaders,
-            'Content-Type': 'application/json',
-            'Cache-Control': 'public, max-age=300'
-          }
-        });
-      }
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=300",
+          },
+        }
+      );
     }
-    
-    return new Response('Channel not found', {
-      status: 404,
-      headers: corsHeaders
-    });
   } catch (error) {
-    console.error('Error in getChannelStats:', error);
+    console.error("Error in getChannelStats:", error);
     const errorMessage = `Error fetching stats: ${error.message}`;
-    
-    // Return HTML error for browser requests, JSON error for API requests
-    const accept = request.headers.get('Accept') || '';
-    if (accept.includes('text/html')) {
-      const htmlError = `
+
+    // Return appropriate error format based on Accept header
+    const accept = request.headers.get("Accept") || "";
+    if (accept.includes("text/html")) {
+      return new Response(
+        `
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Error - YouTube Stats</title>
+  <title>Error - Channel Stats</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -263,123 +260,112 @@ async function getChannelStats(request, API_KEY, CHANNEL_ID) {
   <h1>Error</h1>
   <div class="error">${errorMessage}</div>
 </body>
-</html>`;
-      return new Response(htmlError, {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/html',
+</html>`,
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "text/html",
+          },
         }
-      });
+      );
     } else {
-      return new Response(JSON.stringify({ 
-        error: errorMessage,
-        timestamp: new Date().toISOString()
-      }), {
+      return new Response(
+        JSON.stringify({
+          error: errorMessage,
+          timestamp: new Date().toISOString(),
+        }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+  }
+};
+
+// Get recent videos from the channel
+const getRecentVideos = async (request, API_KEY, CHANNEL_ID) => {
+  try {
+    // First, get the channel's uploads playlist ID
+    const channelResponse = await fetch(
+      `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${CHANNEL_ID}&key=${API_KEY}`
+    ).then(validateResponse);
+
+    const channelData = await channelResponse.json();
+    const uploadsPlaylistId =
+      channelData.items[0].contentDetails.relatedPlaylists.uploads;
+
+    // Then, get the latest videos from that playlist
+    const videosResponse = await fetch(
+      `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=5&key=${API_KEY}`
+    ).then(validateResponse);
+
+    const data = await videosResponse.json();
+
+    if (!data.items || data.items.length === 0) {
+      return new Response(
+        JSON.stringify({
+          videos: [],
+          timestamp: new Date().toISOString(),
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
+    const videos = data.items.map((item) => ({
+      id: item.snippet.resourceId.videoId,
+      title: item.snippet.title,
+      description: item.snippet.description,
+      publishedAt: item.snippet.publishedAt,
+      thumbnails: item.snippet.thumbnails,
+    }));
+
+    return new Response(
+      JSON.stringify({
+        videos,
+        timestamp: new Date().toISOString(),
+      }),
+      {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=300", // Cache for 5 minutes
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Error in getRecentVideos:", error);
+    return new Response(
+      JSON.stringify({
+        error: "Failed to fetch recent videos",
+        message: error.message,
+        timestamp: new Date().toISOString(),
+      }),
+      {
         status: 500,
         headers: {
           ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      });
-    }
-  }
-}
-
-async function getRecentVideos(request, API_KEY, CHANNEL_ID) {
-  try {
-    console.log('Fetching recent videos...');
-    const response = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?key=${API_KEY}&channelId=${CHANNEL_ID}&part=snippet,id&order=date&maxResults=5&type=video`
+          "Content-Type": "application/json",
+        },
+      }
     );
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('YouTube API Error:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText
-      });
-      throw new Error(`YouTube API returned ${response.status}: ${errorText}`);
-    }
-    
-    const data = await response.json();
-    console.log('Recent videos response:', data);
-    
-    if (data.items && data.items.length > 0) {
-      const videos = data.items.map(item => ({
-        id: item.id.videoId,
-        title: item.snippet.title,
-        description: item.snippet.description,
-        publishedAt: item.snippet.publishedAt,
-        thumbnail: item.snippet.thumbnails.medium.url
-      }));
-      
-      return new Response(JSON.stringify({ 
-        videos,
-        timestamp: new Date().toISOString()
-      }), {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-          'Cache-Control': 'public, max-age=600' // Cache for 10 minutes
-        }
-      });
-    }
-    
-    return new Response(JSON.stringify({ 
-      videos: [],
-      timestamp: new Date().toISOString()
-    }), {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
-    });
-  } catch (error) {
-    console.error('Error in getRecentVideos:', error);
-    return new Response(JSON.stringify({ 
-      error: `Error fetching videos: ${error.message}`,
-      videos: [],
-      timestamp: new Date().toISOString()
-    }), {
-      status: 500,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
-    });
   }
-}
+};
 
-// Utility function to validate responses
-async function validateResponse(response) {
+// Helper function to validate YouTube API responses
+const validateResponse = async (response) => {
   if (!response.ok) {
     const text = await response.text();
     throw new Error(`YouTube API error: ${text}`);
   }
   return response;
-}
-
-addEventListener('fetch', event => {
-  event.respondWith(handleRequest(event.request));
-});
-
-async function handleRequest(request) {
-  const url = new URL(request.url);
-
-  // Serve static assets (e.g., index.html, style.css)
-  if (url.pathname.startsWith('/')) {
-    const asset = await getAssetFromKV({ request });
-    if (asset) return asset;
-  }
-
-  // Custom Worker logic (from workers.js)
-  if (url.pathname.startsWith('/api/')) {
-    return new Response(JSON.stringify({ message: 'API response' }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  return new Response('Not Found', { status: 404 });
-}
+};
