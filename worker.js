@@ -301,7 +301,7 @@ const getRecentVideos = async (request, API_KEY, CHANNEL_ID) => {
 
     // Then, get the latest videos from that playlist
     const videosResponse = await fetch(
-      `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=5&key=${API_KEY}`
+      `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=6&key=${API_KEY}`
     ).then(validateResponse);
 
     const data = await videosResponse.json();
